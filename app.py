@@ -18,6 +18,8 @@ def init_db():
     with db() as c:
         c.execute('CREATE TABLE IF NOT EXISTS matches (id INTEGER PRIMARY KEY, title TEXT NOT NULL, starts_at TEXT NOT NULL, category TEXT NOT NULL, venue TEXT NOT NULL DEFAULT "", price REAL NOT NULL DEFAULT 0 CHECK(price>=0), capacity INTEGER NOT NULL CHECK(capacity>0))')
         c.execute('CREATE TABLE IF NOT EXISTS registrations (id INTEGER PRIMARY KEY, match_id INTEGER NOT NULL REFERENCES matches(id), name TEXT NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP, UNIQUE(match_id,name COLLATE NOCASE))')
+        if not any(col[1]=='prize' for col in c.execute('PRAGMA table_info(matches)').fetchall()):
+            c.execute("ALTER TABLE matches ADD COLUMN prize TEXT NOT NULL DEFAULT ''")
         c.execute('CREATE TABLE IF NOT EXISTS admins (id INTEGER PRIMARY KEY, password_hash TEXT NOT NULL)')
         c.execute('PRAGMA foreign_keys=ON')
         if not c.execute('SELECT 1 FROM admins').fetchone():
@@ -75,6 +77,36 @@ def register(match_id):
     finally: c.close()
     return redirect(url_for('index')+'#partidos')
 
+@app.post('/inscribir-pareja/<int:match_id>')
+def register_pair(match_id):
+    names=[' '.join(request.form.get(key,'').split()) for key in ('name1','name2')]
+    if any(not 2<=len(n)<=70 for n in names) or names[0].casefold()==names[1].casefold():
+        flash('Escribe dos nombres diferentes, de 2 a 70 caracteres.','error')
+        return redirect(url_for('index')+'#partidos')
+    c=db()
+    try:
+        c.execute('BEGIN IMMEDIATE')
+        m=c.execute('SELECT capacity,starts_at FROM matches WHERE id=?',(match_id,)).fetchone()
+        count=c.execute('SELECT COUNT(*) FROM registrations WHERE match_id=?',(match_id,)).fetchone()[0]
+        if not m or m['starts_at']<datetime.now().strftime('%Y-%m-%dT%H:%M'):
+            flash('Este partido ya no está disponible.','error')
+        elif m['capacity']-count<2:
+            flash('No hay dos cupos disponibles para la pareja.','error')
+        elif c.execute('SELECT 1 FROM registrations WHERE match_id=? AND (name=? COLLATE NOCASE OR name=? COLLATE NOCASE)',(match_id,*names)).fetchone():
+            flash('Uno de los jugadores ya está inscrito.','error')
+        else:
+            for name in names:
+                c.execute('INSERT INTO registrations(match_id,name) VALUES (?,?)',(match_id,name))
+            flash('¡Pareja inscrita correctamente!','ok')
+        c.execute('COMMIT')
+    except sqlite3.IntegrityError:
+        c.execute('ROLLBACK')
+        flash('Uno de los nombres ya está registrado.','error')
+    except Exception:
+        c.execute('ROLLBACK');raise
+    finally:c.close()
+    return redirect(url_for('index')+'#partidos')
+
 @app.route('/administracion',methods=['GET','POST'])
 def login():
     if session.get('admin'):return redirect(url_for('admin'))
@@ -106,14 +138,15 @@ def validate_match():
     price=float(request.form.get('price','-1'))
     datetime.strptime(starts,'%Y-%m-%dT%H:%M')
     if not title or not category or not (1<=capacity<=10000) or not (0<=price<=100000):raise ValueError('Datos inválidos')
-    return title,starts,category,venue,price,capacity
+    prize=request.form.get('prize','').strip()[:250]
+    return title,starts,category,venue,price,capacity,prize
 
 @app.post('/panel/crear')
 @admin_required
 def create():
     try:
         fields=validate_match()
-        with db() as c:c.execute('INSERT INTO matches(title,starts_at,category,venue,price,capacity) VALUES (?,?,?,?,?,?)',fields)
+        with db() as c:c.execute('INSERT INTO matches(title,starts_at,category,venue,price,capacity,prize) VALUES (?,?,?,?,?,?,?)',fields)
         flash('Partido creado.','ok')
     except (ValueError,OverflowError):flash('Revisa los datos del partido.','error')
     return redirect(url_for('admin'))
@@ -125,8 +158,8 @@ def edit(mid):
         fields=validate_match()
         with db() as c:
             count=c.execute('SELECT COUNT(*) FROM registrations WHERE match_id=?',(mid,)).fetchone()[0]
-            if fields[-1]<count:flash('No puedes poner menos cupos que jugadores inscritos.','error')
-            else:c.execute('UPDATE matches SET title=?,starts_at=?,category=?,venue=?,price=?,capacity=? WHERE id=?',(*fields,mid));flash('Partido actualizado.','ok')
+            if fields[5]<count:flash('No puedes poner menos cupos que jugadores inscritos.','error')
+            else:c.execute('UPDATE matches SET title=?,starts_at=?,category=?,venue=?,price=?,capacity=?,prize=? WHERE id=?',(*fields,mid));flash('Partido actualizado.','ok')
     except (ValueError,OverflowError):flash('Revisa los datos del partido.','error')
     return redirect(url_for('admin'))
 
