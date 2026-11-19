@@ -1,4 +1,4 @@
-import os, sqlite3, hmac
+import os, sqlite3, hmac, uuid
 from datetime import datetime
 from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
@@ -18,6 +18,8 @@ def init_db():
     with db() as c:
         c.execute('CREATE TABLE IF NOT EXISTS matches (id INTEGER PRIMARY KEY, title TEXT NOT NULL, starts_at TEXT NOT NULL, category TEXT NOT NULL, venue TEXT NOT NULL DEFAULT "", price REAL NOT NULL DEFAULT 0 CHECK(price>=0), capacity INTEGER NOT NULL CHECK(capacity>0))')
         c.execute('CREATE TABLE IF NOT EXISTS registrations (id INTEGER PRIMARY KEY, match_id INTEGER NOT NULL REFERENCES matches(id), name TEXT NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP, UNIQUE(match_id,name COLLATE NOCASE))')
+        if not any(col[1]=='pair_id' for col in c.execute('PRAGMA table_info(registrations)').fetchall()):
+            c.execute('ALTER TABLE registrations ADD COLUMN pair_id TEXT')
         if not any(col[1]=='prize' for col in c.execute('PRAGMA table_info(matches)').fetchall()):
             c.execute("ALTER TABLE matches ADD COLUMN prize TEXT NOT NULL DEFAULT ''")
         c.execute('CREATE TABLE IF NOT EXISTS admins (id INTEGER PRIMARY KEY, password_hash TEXT NOT NULL)')
@@ -46,14 +48,44 @@ def protect():
     if request.method=='POST' and not hmac.compare_digest(request.form.get('csrf',''),token()):
         return 'Solicitud inválida. Actualiza la página.',400
 
+def auto_pair_waiting(c, match_id):
+    """Match unpaired individual registrations in signup order; preserve existing pairs."""
+    waiting=c.execute('SELECT id FROM registrations WHERE match_id=? AND pair_id IS NULL ORDER BY id',(match_id,)).fetchall()
+    for i in range(0,len(waiting)-1,2):
+        pair_id=uuid.uuid4().hex
+        c.execute('UPDATE registrations SET pair_id=? WHERE id IN (?,?)',(pair_id,waiting[i]['id'],waiting[i+1]['id']))
+
+def group_players(players):
+    grouped={}
+    individuals=[]
+    for player in players:
+        if player['pair_id']:
+            grouped.setdefault(player['pair_id'],[]).append(player)
+        else:
+            individuals.append(player)
+    pairs=[]
+    for members in grouped.values():
+        if len(members)==2:
+            pairs.append(members)
+        else:
+            individuals.extend(members)
+    pairs.sort(key=lambda pair:min(p['id'] for p in pair))
+    return pairs, individuals
+
+# Vincular también a los jugadores individuales que ya estaban inscritos.
+with db() as _conn:
+    for _match in _conn.execute('SELECT DISTINCT match_id FROM registrations').fetchall():
+        auto_pair_waiting(_conn,_match['match_id'])
+
 @app.get('/')
 def index():
     c=db()
     matches=c.execute('SELECT * FROM matches WHERE starts_at >= ? ORDER BY starts_at ASC,id ASC',(datetime.now().strftime('%Y-%m-%dT%H:%M'),)).fetchall()
     rows=[]
     for m in matches:
-        names=c.execute('SELECT name FROM registrations WHERE match_id=? ORDER BY id',(m['id'],)).fetchall()
-        rows.append({'match':m,'names':names,'remaining':m['capacity']-len(names)})
+        players=c.execute('SELECT id,name,pair_id FROM registrations WHERE match_id=? ORDER BY id',(m['id'],)).fetchall()
+        pairs, individuals=group_players(players)
+        rows.append({'match':m,'names':players,'pairs':pairs,'individuals':individuals,'remaining':m['capacity']-len(players)})
     c.close()
     return render_template('index.html',rows=rows)
 
@@ -69,7 +101,10 @@ def register(match_id):
         if not m or m['starts_at']<datetime.now().strftime('%Y-%m-%dT%H:%M'): flash('Este partido ya no está disponible.','error')
         elif count>=m['capacity']: flash('Este partido ya está completo.','error')
         else:
-            try: c.execute('INSERT INTO registrations(match_id,name) VALUES (?,?)',(match_id,name));flash('¡Inscripción realizada!','ok')
+            try:
+                c.execute('INSERT INTO registrations(match_id,name) VALUES (?,?)',(match_id,name))
+                auto_pair_waiting(c,match_id)
+                flash('¡Inscripción realizada! Si hay otro jugador esperando, formarán pareja automáticamente.','ok')
             except sqlite3.IntegrityError: flash('Ese nombre ya está inscrito en este partido.','error')
         c.execute('COMMIT')
     except Exception:
@@ -95,8 +130,9 @@ def register_pair(match_id):
         elif c.execute('SELECT 1 FROM registrations WHERE match_id=? AND (name=? COLLATE NOCASE OR name=? COLLATE NOCASE)',(match_id,*names)).fetchone():
             flash('Uno de los jugadores ya está inscrito.','error')
         else:
+            pair_id=uuid.uuid4().hex
             for name in names:
-                c.execute('INSERT INTO registrations(match_id,name) VALUES (?,?)',(match_id,name))
+                c.execute('INSERT INTO registrations(match_id,name,pair_id) VALUES (?,?,?)',(match_id,name,pair_id))
             flash('¡Pareja inscrita correctamente!','ok')
         c.execute('COMMIT')
     except sqlite3.IntegrityError:
@@ -126,7 +162,12 @@ def logout():session.clear();return redirect(url_for('index'))
 @admin_required
 def admin():
     c=db();matches=c.execute('SELECT * FROM matches ORDER BY starts_at DESC').fetchall()
-    rows=[{'match':m,'players':c.execute('SELECT * FROM registrations WHERE match_id=? ORDER BY id',(m['id'],)).fetchall()} for m in matches];c.close()
+    rows=[]
+    for m in matches:
+        players=c.execute('SELECT * FROM registrations WHERE match_id=? ORDER BY id',(m['id'],)).fetchall()
+        pairs,individuals=group_players(players)
+        rows.append({'match':m,'players':players,'pairs':pairs,'individuals':individuals})
+    c.close()
     return render_template('admin.html',rows=rows)
 
 def validate_match():
@@ -166,7 +207,13 @@ def edit(mid):
 @app.post('/panel/eliminar-jugador/<int:rid>')
 @admin_required
 def delete_player(rid):
-    with db() as c:c.execute('DELETE FROM registrations WHERE id=?',(rid,))
+    with db() as c:
+        player=c.execute('SELECT match_id,pair_id FROM registrations WHERE id=?',(rid,)).fetchone()
+        if player:
+            c.execute('DELETE FROM registrations WHERE id=?',(rid,))
+            if player['pair_id']:
+                c.execute('UPDATE registrations SET pair_id=NULL WHERE match_id=? AND pair_id=?',(player['match_id'],player['pair_id']))
+            auto_pair_waiting(c,player['match_id'])
     flash('Jugador eliminado.','ok');return redirect(url_for('admin'))
 
 @app.post('/panel/eliminar-partido/<int:mid>')
