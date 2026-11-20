@@ -135,7 +135,7 @@ main {
       rgba(3, 6, 4, .82) 42%,
       rgba(3, 6, 4, .20) 100%
     ),
-    url("/static/padel-hero.jpg")
+    url("/static/padel-hero.PNG")
       center center / cover no-repeat,
     #101a0d;
 }
@@ -688,7 +688,7 @@ footer {
         rgba(3, 6, 4, .94),
         rgba(3, 6, 4, .62)
       ),
-      url("/static/padel-hero.jpg")
+      url("/static/padel-hero.PNG")
         65% center / cover no-repeat,
       #101a0d;
   }
