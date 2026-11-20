@@ -111,43 +111,37 @@ main {
   min-height: 65vh;
 }
 
-/* PORTADA */
+/* PORTADA CON FOTOGRAFÍA */
 
 .hero {
   max-width: 1440px;
   margin: auto;
-  min-height: 360px;
-  padding: 68px 36px 72px;
+  min-height: 470px;
+  padding: 75px 48px 85px;
   position: relative;
   overflow: hidden;
   isolation: isolate;
   border-bottom: 1px solid #263325;
+
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+
   background:
     linear-gradient(
       90deg,
-      rgba(3, 6, 4, .97) 0%,
-      rgba(3, 6, 4, .86) 48%,
-      rgba(3, 6, 4, .3) 100%
+      rgba(3, 6, 4, .96) 0%,
+      rgba(3, 6, 4, .82) 42%,
+      rgba(3, 6, 4, .20) 100%
     ),
-    radial-gradient(
-      circle at 82% 55%,
-      #3b681a 0,
-      transparent 30%
-    );
+    url("/static/padel-hero.jpg")
+      center center / cover no-repeat,
+    #101a0d;
 }
 
 .hero::before {
-  content: "";
-  position: absolute;
-  right: -180px;
-  top: -120px;
-  width: 320px;
-  height: 650px;
-  border-left: 16px solid var(--lime);
-  transform: rotate(24deg);
-  opacity: .32;
-  z-index: -1;
-  pointer-events: none;
+  display: none;
 }
 
 .eyebrow {
@@ -164,6 +158,7 @@ main {
   letter-spacing: -3px;
   margin: 18px 0;
   font-weight: 950;
+  text-shadow: 0 3px 15px #00000080;
 }
 
 .hero em {
@@ -174,8 +169,9 @@ main {
   max-width: 570px;
   font-size: 18px;
   line-height: 1.6;
-  color: #c2cbc2;
+  color: #f0f3ed;
   margin-bottom: 28px;
+  text-shadow: 0 2px 12px #00000090;
 }
 
 .btn {
@@ -208,17 +204,7 @@ main {
 }
 
 .court {
-  position: absolute;
-  right: 8%;
-  top: 42%;
-  padding: 70px 35px;
-  border: 2px solid #7cbb35;
-  color: #a5ff35;
-  font-size: 32px;
-  font-weight: 950;
-  opacity: .12;
-  transform: rotate(-16deg);
-  pointer-events: none;
+  display: none;
 }
 
 /* CONTENIDO */
@@ -445,7 +431,7 @@ textarea:focus {
   font-weight: 800;
 }
 
-/* ADMINISTRACION */
+/* ADMINISTRACIÓN */
 
 .auth {
   max-width: 470px;
@@ -556,7 +542,7 @@ tr:nth-child(even) td {
   background: #151b15;
 }
 
-/* PIE DE PAGINA */
+/* PIE DE PÁGINA */
 
 footer {
   text-align: center;
@@ -609,8 +595,9 @@ footer {
   }
 
   .hero {
-    min-height: 320px;
-    padding: 65px 22px;
+    min-height: 410px;
+    padding: 60px 24px;
+    background-position: center, 60% center;
   }
 
   .hero h1 {
@@ -620,10 +607,6 @@ footer {
 
   .hero p {
     font-size: 16px;
-  }
-
-  .court {
-    display: none;
   }
 
   .content {
@@ -696,16 +679,18 @@ footer {
   }
 
   .hero {
-    min-height: auto;
-    padding: 45px 20px 62px;
-  }
+    min-height: 440px;
+    padding: 55px 20px;
 
-  /* LINEA VERDE ALEJADA DEL TEXTO */
-
-  .hero::before {
-    right: -270px;
-    top: -100px;
-    opacity: .22;
+    background:
+      linear-gradient(
+        90deg,
+        rgba(3, 6, 4, .94),
+        rgba(3, 6, 4, .62)
+      ),
+      url("/static/padel-hero.jpg")
+        65% center / cover no-repeat,
+      #101a0d;
   }
 
   .hero h1 {
