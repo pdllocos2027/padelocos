@@ -139,14 +139,15 @@ main {
 .hero::before {
   content: "";
   position: absolute;
-  right: -80px;
-  top: -100px;
+  right: -180px;
+  top: -120px;
   width: 320px;
   height: 650px;
   border-left: 16px solid var(--lime);
   transform: rotate(24deg);
-  opacity: .65;
+  opacity: .32;
   z-index: -1;
+  pointer-events: none;
 }
 
 .eyebrow {
@@ -639,7 +640,7 @@ footer {
   }
 }
 
-/* CELULARES - MENU COMPACTO */
+/* CELULARES */
 
 @media (max-width: 600px) {
 
@@ -665,10 +666,10 @@ footer {
   nav {
     width: 100%;
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: 0.8fr 0.9fr 1.35fr 1.35fr;
     align-items: stretch;
-    gap: 4px;
-    font-size: 10px;
+    gap: 3px;
+    font-size: 9px;
     text-align: center;
   }
 
@@ -679,22 +680,32 @@ footer {
     justify-content: center;
     min-width: 0;
     min-height: 48px;
-    padding: 7px 2px;
-    line-height: 1.25;
-    overflow-wrap: anywhere;
+    padding: 8px 1px;
+    line-height: 1.2;
+    overflow-wrap: normal;
+    word-break: normal;
   }
 
   nav .navadmin {
     border: 1px solid #657b39;
     border-radius: 10px;
-    padding: 7px 2px;
+    padding: 8px 2px;
     background: #151d11;
     color: #d4f84d;
+    font-size: 9px;
   }
 
   .hero {
     min-height: auto;
     padding: 45px 20px 62px;
+  }
+
+  /* LINEA VERDE ALEJADA DEL TEXTO */
+
+  .hero::before {
+    right: -270px;
+    top: -100px;
+    opacity: .22;
   }
 
   .hero h1 {
