@@ -46,12 +46,11 @@
     <h2>🎾 Generador de enfrentamientos</h2>
     <p class="muted">
       Distribuye las parejas inscritas automáticamente y revisa los cruces.
-      Esta versión genera una vista previa privada: no publica ni guarda el calendario.
+      Los calendarios se guardan como borrador antes de publicarlos.
     </p>
 
     <form class="editor" method="post" action="{{url_for('fixture_preview')}}#generador">
       <input type="hidden" name="csrf" value="{{csrf_token()}}">
-
       <label>Partido
         <select name="match_id" required>
           {% for row in rows %}
@@ -61,22 +60,18 @@
           {% endfor %}
         </select>
       </label>
-
       <label>Grupos
         <select name="groups">
           <option value="1">1 grupo</option>
           <option value="2">2 grupos (A y B)</option>
         </select>
       </label>
-
       <label>Partidos por pareja
         <input type="number" name="games_per_pair" min="1" max="100" value="4" required>
       </label>
-
       <label>Canchas disponibles
         <input type="number" name="courts" min="1" max="100" value="6" required>
       </label>
-
       <button class="btn" {% if not rows %}disabled{% endif %}>
         Generar enfrentamientos
       </button>
@@ -87,7 +82,7 @@
       <p class="muted">
         {{fixture.games|length}} partidos ·
         {{fixture.turns}} turnos ·
-        {{fixture.courts}} canchas disponibles
+        {{fixture.courts}} canchas
       </p>
 
       {% for group_name, pairs in fixture.groups.items() %}
@@ -100,7 +95,7 @@
       {% endfor %}
 
       <div style="overflow-x:auto">
-        <table style="width:100%;border-collapse:collapse;text-align:left">
+        <table style="width:100%;text-align:left">
           <thead>
             <tr>
               <th>Turno</th>
@@ -112,23 +107,90 @@
           </thead>
           <tbody>
             {% for game in fixture.games %}
-              <tr style="border-top:1px solid #8885">
-                <td style="padding:8px">{{game.turn}}</td>
-                <td style="padding:8px">{{game.court}}</td>
-                <td style="padding:8px">{{game.group}}</td>
-                <td style="padding:8px">{{game.pair1|join(' / ')}}</td>
-                <td style="padding:8px">{{game.pair2|join(' / ')}}</td>
+              <tr>
+                <td>{{game.turn}}</td>
+                <td>{{game.court}}</td>
+                <td>{{game.group}}</td>
+                <td>{{game.pair1|join(' / ')}}</td>
+                <td>{{game.pair2|join(' / ')}}</td>
               </tr>
             {% endfor %}
           </tbody>
         </table>
       </div>
-
-      <p class="muted">
-        Solo tú puedes ver esta vista previa.
-        Si recargas la página, tendrás que generarla otra vez.
-      </p>
     {% endif %}
+
+    <h3>Calendarios guardados</h3>
+
+    {% for row in rows if row.saved_fixture %}
+      {% set f=row.saved_fixture %}
+      <details class="match" {% if fixture and fixture.match_title==f.match_title %}open{% endif %}>
+        <summary>
+          <strong>{{row.match.title}}</strong> —
+          {% if row.fixture_published %}
+            🟢 Publicado
+          {% else %}
+            📝 Borrador privado
+          {% endif %}
+        </summary>
+
+        <p class="muted">
+          {{f.games|length}} enfrentamientos · {{f.turns}} turnos
+        </p>
+
+        {% for group_name, pairs in f.groups.items() %}
+          <h4>Grupo {{group_name}}</h4>
+          {% for pair in pairs %}
+            <p class="muted">
+              Pareja {{loop.index}}: {{pair|join(' / ')}}
+            </p>
+          {% endfor %}
+        {% endfor %}
+
+        <div style="overflow-x:auto">
+          <table style="width:100%;text-align:left">
+            <thead>
+              <tr>
+                <th>Turno</th>
+                <th>Cancha</th>
+                <th>Grupo</th>
+                <th>Pareja 1</th>
+                <th>Pareja 2</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for game in f.games %}
+                <tr>
+                  <td>{{game.turn}}</td>
+                  <td>{{game.court}}</td>
+                  <td>{{game.group}}</td>
+                  <td>{{game.pair1|join(' / ')}}</td>
+                  <td>{{game.pair2|join(' / ')}}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        {% if row.fixture_published %}
+          <form method="post" action="{{url_for('hide_fixture',mid=row.match.id)}}">
+            <input type="hidden" name="csrf" value="{{csrf_token()}}">
+            <button class="danger" type="submit">
+              Ocultar a jugadores
+            </button>
+          </form>
+        {% else %}
+          <form method="post" action="{{url_for('publish_fixture',mid=row.match.id)}}">
+            <input type="hidden" name="csrf" value="{{csrf_token()}}">
+            <button class="btn" type="submit">
+              Publicar enfrentamientos
+            </button>
+          </form>
+        {% endif %}
+      </details>
+    {% else %}
+      <p class="muted">Todavía no hay calendarios guardados.</p>
+    {% endfor %}
   </section>
 
   <h2 class="subheading">Gestionar partidos</h2>
@@ -145,7 +207,6 @@
         <summary>Editar datos del partido</summary>
         <form class="editor" method="post" action="{{url_for('edit',mid=m.id)}}">
           <input type="hidden" name="csrf" value="{{csrf_token()}}">
-
           <label>Nombre
             <input name="title" value="{{m.title}}" required>
           </label>
@@ -176,7 +237,6 @@
       {% for pair in row.pairs %}
         <div class="pair-entry">
           <strong>Pareja {{loop.index}}</strong>
-
           {% for p in pair %}
             <div class="adminplayer">
               <span>{{p.name}}</span>
