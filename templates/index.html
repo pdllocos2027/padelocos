@@ -2,39 +2,51 @@
 {% extends 'base.html' %}
 {% block content %}
 
-<section class="hero">
-  <div class="eyebrow">🎾 TU COMUNIDAD DE PÁDEL</div>
-  <h1>El próximo partido<br>te está <em>esperando.</em></h1>
+<section class="hero" id="inicio">
+  <div class="eyebrow">🎾 BIENVENIDO A PADELOCOS</div>
+  <h1>
+    TU PRÓXIMO<br>
+    GRAN <em>PARTIDO.</em>
+  </h1>
   <p>
-    Encuentra tu juego, revisa quiénes van y apúntate en segundos.
-    Sin cuentas, sin complicaciones.
+    Vive el pádel de otra manera. Encuentra partidos,
+    inscríbete con tu pareja y consulta tus enfrentamientos.
+    Todo en un solo lugar.
   </p>
-  <a class="btn" href="#partidos">Ver próximos partidos ↓</a>
+  <a class="btn" href="#partidos">
+    🎾 Explorar partidos →
+  </a>
   <div class="court">✦ PADELOCOS ✦</div>
 </section>
 
 <section id="partidos" class="content">
+
   <div class="sectionhead">
     <div>
-      <div class="eyebrow">AGENDA</div>
-      <h2>Próximos partidos</h2>
+      <div class="eyebrow">ENCUENTRA TU PRÓXIMO JUEGO</div>
+      <h2>🎾 Partidos disponibles</h2>
     </div>
-    <span class="muted">Ordenados por fecha y hora</span>
+    <span class="muted">
+      Consulta los próximos encuentros
+    </span>
   </div>
 
   {% if not rows %}
     <div class="empty">
-      Todavía no hay partidos programados. ¡Vuelve pronto! 🎾
+      🎾 Todavía no hay partidos programados.
+      ¡Vuelve pronto!
     </div>
   {% endif %}
 
   {% for row in rows %}
-    {% set m=row.match %}
+    {% set m = row.match %}
 
-    <article class="match">
+    <article class="match" id="partido-{{m.id}}">
+
       <div class="matchtop">
         <div>
           <span class="pill">{{m.category}}</span>
+
           <h3>{{m.title}}</h3>
 
           <div class="details">
@@ -42,6 +54,7 @@
               📅 {{m.starts_at[8:10]}}/{{m.starts_at[5:7]}}/{{m.starts_at[:4]}}
             </span>
             <span>🕒 {{m.starts_at[11:16]}}</span>
+
             {% if m.venue %}
               <span>📍 {{m.venue}}</span>
             {% endif %}
@@ -61,10 +74,13 @@
       {% endif %}
 
       <div class="capacity">
-        <span>{{row.names|length}} de {{m.capacity}} jugadores</span>
+        <span>
+          👥 {{row.names|length}} de {{m.capacity}} jugadores
+        </span>
+
         <strong>
           {% if row.remaining > 0 %}
-            {{row.remaining}} cupos libres
+            {{row.remaining}} cupos disponibles
           {% else %}
             PARTIDO COMPLETO
           {% endif %}
@@ -82,116 +98,225 @@
           <div class="pair-list">
             {% for pair in row.pairs %}
               <div class="pair-entry">
-                <strong>Pareja {{loop.index}}</strong>
-                <span>{{pair[0].name}} + {{pair[1].name}}</span>
+                <strong>🎾 Pareja {{loop.index}}</strong>
+                <span>
+                  {{pair[0].name}} + {{pair[1].name}}
+                </span>
               </div>
             {% endfor %}
           </div>
         {% endif %}
 
         {% if row.individuals %}
-          <div class="pair-entry">
+          <div class="pair-entry" style="margin-top:10px">
             <strong>⏳ Esperando compañero</strong>
+
             {% for player in row.individuals %}
               <span>{{player.name}}</span>
             {% endfor %}
           </div>
         {% elif not row.pairs %}
-          <p class="muted">Todavía no hay jugadores inscritos.</p>
+          <p class="muted">
+            Todavía no hay jugadores inscritos.
+          </p>
         {% endif %}
       </div>
 
       {% if row.remaining > 0 %}
+
         <form class="signup"
               method="post"
               action="{{url_for('register',match_id=m.id)}}">
-          <input type="hidden" name="csrf" value="{{csrf_token()}}">
-          <label class="sr" for="name-{{m.id}}">Tu nombre</label>
+
+          <input type="hidden"
+                 name="csrf"
+                 value="{{csrf_token()}}">
+
+          <label class="sr" for="name-{{m.id}}">
+            Tu nombre
+          </label>
+
           <input id="name-{{m.id}}"
                  name="name"
-                 placeholder="Escribe tu nombre (te asignamos pareja)"
+                 placeholder="Escribe tu nombre"
                  maxlength="70"
                  minlength="2"
                  required>
+
           <button class="btn" type="submit">
-            Inscribirme →
+            🎾 Inscribirme →
           </button>
         </form>
 
+        <p class="muted" style="font-size:12px">
+          Si te inscribes individualmente, Padelocos
+          te asignará una pareja automáticamente.
+        </p>
+
         {% if row.remaining >= 2 %}
           <details class="pair-register">
-            <summary>👥 Inscribir pareja (2 cupos)</summary>
+            <summary>
+              👥 Inscribir pareja completa
+            </summary>
 
             <form class="signup"
                   method="post"
                   action="{{url_for('register_pair',match_id=m.id)}}">
-              <input type="hidden" name="csrf" value="{{csrf_token()}}">
+
+              <input type="hidden"
+                     name="csrf"
+                     value="{{csrf_token()}}">
+
               <input name="name1"
-                     placeholder="Nombre del primer jugador"
+                     placeholder="Primer jugador"
                      maxlength="70"
                      minlength="2"
                      required>
+
               <input name="name2"
-                     placeholder="Nombre del segundo jugador"
+                     placeholder="Segundo jugador"
                      maxlength="70"
                      minlength="2"
                      required>
+
               <button class="btn" type="submit">
                 Inscribir pareja →
               </button>
             </form>
           </details>
         {% endif %}
+
       {% else %}
-        <div class="full">Inscripciones cerradas</div>
+        <div class="full">
+          🔒 Inscripciones cerradas
+        </div>
       {% endif %}
 
       {% if row.fixture %}
-        <section class="match" style="margin-top:18px">
-          <h4>🎾 Enfrentamientos publicados</h4>
-          <p class="muted">
-            {{row.fixture.games|length}} partidos ·
-            {{row.fixture.turns}} turnos
-          </p>
-
-          {% for group_name, pairs in row.fixture.groups.items() %}
-            <h4>Grupo {{group_name}}</h4>
-            {% for pair in pairs %}
-              <p class="muted">
-                Pareja {{loop.index}}: {{pair|join(' / ')}}
-              </p>
-            {% endfor %}
-          {% endfor %}
-
-          <div style="overflow-x:auto">
-            <table style="width:100%;text-align:left">
-              <thead>
-                <tr>
-                  <th>Turno</th>
-                  <th>Cancha</th>
-                  <th>Grupo</th>
-                  <th>Pareja 1</th>
-                  <th>Pareja 2</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for game in row.fixture.games %}
-                  <tr>
-                    <td>{{game.turn}}</td>
-                    <td>{{game.court}}</td>
-                    <td>{{game.group}}</td>
-                    <td>{{game.pair1|join(' / ')}}</td>
-                    <td>{{game.pair2|join(' / ')}}</td>
-                  </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-        </section>
+        <a class="btn"
+           style="margin-top:18px"
+           href="#fixture-{{m.id}}">
+          🏆 Ver enfrentamientos publicados ↓
+        </a>
       {% endif %}
 
     </article>
   {% endfor %}
+
+</section>
+
+<section id="enfrentamientos" class="content">
+
+  <div class="sectionhead">
+    <div>
+      <div class="eyebrow">CALENDARIO DE JUEGO</div>
+      <h2>🏆 Enfrentamientos</h2>
+    </div>
+
+    <span class="muted">
+      Grupos, turnos y canchas
+    </span>
+  </div>
+
+  {% set ns = namespace(published=false) %}
+
+  {% for row in rows %}
+    {% if row.fixture %}
+      {% set ns.published = true %}
+      {% set m = row.match %}
+      {% set fixture = row.fixture %}
+
+      <article class="match" id="fixture-{{m.id}}">
+
+        <div class="matchtop">
+          <div>
+            <span class="pill">CALENDARIO PUBLICADO</span>
+            <h3>{{m.title}}</h3>
+
+            <div class="details">
+              <span>🎾 {{fixture.games|length}} enfrentamientos</span>
+              <span>🔄 {{fixture.turns}} turnos</span>
+              <span>🏟️ {{fixture.courts}} canchas</span>
+            </div>
+          </div>
+        </div>
+
+        <h4>👥 Distribución de grupos</h4>
+
+        {% for group_name, pairs in fixture.groups.items() %}
+          <div class="pair-entry" style="margin-bottom:12px">
+            <strong>Grupo {{group_name}}</strong>
+            <span>{{pairs|length}} parejas</span>
+          </div>
+
+          <div class="pair-list" style="margin-bottom:20px">
+            {% for pair in pairs %}
+              <div class="pair-entry">
+                <strong>Pareja {{loop.index}}</strong>
+                <span>{{pair|join(' + ')}}</span>
+              </div>
+            {% endfor %}
+          </div>
+        {% endfor %}
+
+        <h4>📋 Calendario de enfrentamientos</h4>
+
+        {% for turn in range(1, fixture.turns + 1) %}
+          <div style="
+            margin:18px 0;
+            padding:16px;
+            border:1px solid #354b2c;
+            border-radius:15px;
+            background:#0c120c;
+          ">
+
+            <h4 style="
+              margin:0 0 14px;
+              color:#c7ff16;
+            ">
+              🔄 TURNO {{turn}}
+            </h4>
+
+            {% for game in fixture.games %}
+              {% if game.turn == turn %}
+                <div class="pair-entry"
+                     style="margin-bottom:10px">
+
+                  <strong>🏟️ Cancha {{game.court}}</strong>
+
+                  <span>
+                    Grupo {{game.group}}
+                  </span>
+
+                  <div style="
+                    width:100%;
+                    padding:10px 0;
+                    font-weight:700;
+                  ">
+                    {{game.pair1|join(' + ')}}
+                    <span style="color:#c7ff16">VS</span>
+                    {{game.pair2|join(' + ')}}
+                  </div>
+
+                </div>
+              {% endif %}
+            {% endfor %}
+
+          </div>
+        {% endfor %}
+
+      </article>
+    {% endif %}
+  {% endfor %}
+
+  {% if not ns.published %}
+    <div class="empty">
+      🏆 Todavía no hay enfrentamientos publicados.
+      Cuando el administrador publique un calendario,
+      aparecerá aquí.
+    </div>
+  {% endif %}
+
 </section>
 
 {% endblock %}
