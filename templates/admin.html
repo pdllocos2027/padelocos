@@ -1,1 +1,223 @@
-{% extends 'base.html' %}{% block content %}<section class="content"><div class="sectionhead"><div><div class="eyebrow">ÁREA PRIVADA</div><h1>Panel de administración</h1></div><form method="post" action="{{url_for('logout')}}"><input type="hidden" name="csrf" value="{{csrf_token()}}"><button class="ghost">Cerrar sesión</button></form></div><section class="match"><h2>＋ Crear partido</h2><form class="editor" method="post" action="{{url_for('create')}}"><input type="hidden" name="csrf" value="{{csrf_token()}}"><label>Nombre del partido<input name="title" placeholder="Ej. Americano nocturno" required maxlength="100"></label><label>Fecha y hora<input type="datetime-local" name="starts_at" required></label><label>Categoría<input name="category" placeholder="Ej. Mixto · Intermedio" required maxlength="70"></label><label>Lugar<input name="venue" placeholder="Ej. All padel" maxlength="120"></label><label>Precio USD<input type="number" name="price" min="0" max="100000" step="0.01" value="5" required></label><label>🏆 Premio<input name="prize" placeholder="Ej. Trofeo y $100" maxlength="250"></label><label>Máximo de jugadores<input type="number" name="capacity" min="1" max="10000" value="8" required></label><button class="btn">Crear partido</button></form></section><h2 class="subheading">Gestionar partidos</h2>{% for row in rows %}{% set m=row.match %}<article class="match"><h3>{{m.title}}</h3><p class="muted">{{row.players|length}} de {{m.capacity}} jugadores inscritos</p><details><summary>Editar datos del partido</summary><form class="editor" method="post" action="{{url_for('edit',mid=m.id)}}"><input type="hidden" name="csrf" value="{{csrf_token()}}"><label>Nombre<input name="title" value="{{m.title}}" required></label><label>Fecha y hora<input type="datetime-local" name="starts_at" value="{{m.starts_at}}" required></label><label>Categoría<input name="category" value="{{m.category}}" required></label><label>Lugar<input name="venue" value="{{m.venue}}"></label><label>Precio USD<input type="number" name="price" value="{{m.price}}" min="0" step="0.01" required></label><label>🏆 Premio<input name="prize" value="{{m.prize}}" placeholder="Ej. Trofeo y $100" maxlength="250"></label><label>Máximo de jugadores<input type="number" name="capacity" value="{{m.capacity}}" min="1" required></label><button class="btn">Guardar cambios</button></form></details><h4>👥 Parejas inscritas ({{row.pairs|length}})</h4>{% for pair in row.pairs %}<div class="pair-entry"><strong>Pareja {{loop.index}}</strong>{% for p in pair %}<div class="adminplayer"><span>{{p.name}}</span><form method="post" action="{{url_for('delete_player',rid=p.id)}}" onsubmit="return confirm('¿Eliminar a este jugador? Su compañero quedará esperando nueva pareja.')"><input type="hidden" name="csrf" value="{{csrf_token()}}"><button class="danger">Eliminar jugador</button></form></div>{% endfor %}</div>{% else %}<p class="muted">Sin parejas inscritas.</p>{% endfor %}<h4>⏳ Esperando compañero ({{row.individuals|length}})</h4>{% for p in row.individuals %}<div class="adminplayer"><span>{{p.name}}</span><form method="post" action="{{url_for('delete_player',rid=p.id)}}" onsubmit="return confirm('¿Eliminar a este jugador?')"><input type="hidden" name="csrf" value="{{csrf_token()}}"><button class="danger">Eliminar jugador</button></form></div>{% else %}<p class="muted">Nadie esperando compañero.</p>{% endfor %}<form method="post" action="{{url_for('delete_match',mid=m.id)}}" onsubmit="return confirm('¿Eliminar este partido y todas sus inscripciones?')"><input type="hidden" name="csrf" value="{{csrf_token()}}"><button class="danger">Eliminar partido completo</button></form></article>{% else %}<div class="empty">Aún no has creado partidos.</div>{% endfor %}</section>{% endblock %}
+
+{% extends 'base.html' %}
+{% block content %}
+<section class="content">
+  <div class="sectionhead">
+    <div>
+      <div class="eyebrow">ÁREA PRIVADA</div>
+      <h1>Panel de administración</h1>
+    </div>
+    <form method="post" action="{{url_for('logout')}}">
+      <input type="hidden" name="csrf" value="{{csrf_token()}}">
+      <button class="ghost">Cerrar sesión</button>
+    </form>
+  </div>
+
+  <section class="match">
+    <h2>＋ Crear partido</h2>
+    <form class="editor" method="post" action="{{url_for('create')}}">
+      <input type="hidden" name="csrf" value="{{csrf_token()}}">
+      <label>Nombre del partido
+        <input name="title" placeholder="Ej. Americano nocturno" required maxlength="100">
+      </label>
+      <label>Fecha y hora
+        <input type="datetime-local" name="starts_at" required>
+      </label>
+      <label>Categoría
+        <input name="category" placeholder="Ej. Mixto · Intermedio" required maxlength="70">
+      </label>
+      <label>Lugar
+        <input name="venue" placeholder="Ej. All Padel" maxlength="120">
+      </label>
+      <label>Precio USD
+        <input type="number" name="price" min="0" max="100000" step="0.01" value="5" required>
+      </label>
+      <label>🏆 Premio
+        <input name="prize" placeholder="Ej. Trofeo y $100" maxlength="250">
+      </label>
+      <label>Máximo de jugadores
+        <input type="number" name="capacity" min="1" max="10000" value="8" required>
+      </label>
+      <button class="btn">Crear partido</button>
+    </form>
+  </section>
+
+  <section class="match" id="generador">
+    <h2>🎾 Generador de enfrentamientos</h2>
+    <p class="muted">
+      Distribuye las parejas inscritas automáticamente y revisa los cruces.
+      Esta versión genera una vista previa privada: no publica ni guarda el calendario.
+    </p>
+
+    <form class="editor" method="post" action="{{url_for('fixture_preview')}}#generador">
+      <input type="hidden" name="csrf" value="{{csrf_token()}}">
+
+      <label>Partido
+        <select name="match_id" required>
+          {% for row in rows %}
+          <option value="{{row.match.id}}">
+            {{row.match.title}} ({{row.pairs|length}} parejas)
+          </option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label>Grupos
+        <select name="groups">
+          <option value="1">1 grupo</option>
+          <option value="2">2 grupos (A y B)</option>
+        </select>
+      </label>
+
+      <label>Partidos por pareja
+        <input type="number" name="games_per_pair" min="1" max="100" value="4" required>
+      </label>
+
+      <label>Canchas disponibles
+        <input type="number" name="courts" min="1" max="100" value="6" required>
+      </label>
+
+      <button class="btn" {% if not rows %}disabled{% endif %}>
+        Generar enfrentamientos
+      </button>
+    </form>
+
+    {% if fixture %}
+      <h3>Vista previa: {{fixture.match_title}}</h3>
+      <p class="muted">
+        {{fixture.games|length}} partidos ·
+        {{fixture.turns}} turnos ·
+        {{fixture.courts}} canchas disponibles
+      </p>
+
+      {% for group_name, pairs in fixture.groups.items() %}
+        <h4>Grupo {{group_name}} ({{pairs|length}} parejas)</h4>
+        {% for pair in pairs %}
+          <p class="muted">
+            Pareja {{loop.index}}: {{pair|join(' / ')}}
+          </p>
+        {% endfor %}
+      {% endfor %}
+
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;text-align:left">
+          <thead>
+            <tr>
+              <th>Turno</th>
+              <th>Cancha</th>
+              <th>Grupo</th>
+              <th>Pareja 1</th>
+              <th>Pareja 2</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for game in fixture.games %}
+              <tr style="border-top:1px solid #8885">
+                <td style="padding:8px">{{game.turn}}</td>
+                <td style="padding:8px">{{game.court}}</td>
+                <td style="padding:8px">{{game.group}}</td>
+                <td style="padding:8px">{{game.pair1|join(' / ')}}</td>
+                <td style="padding:8px">{{game.pair2|join(' / ')}}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <p class="muted">
+        Solo tú puedes ver esta vista previa.
+        Si recargas la página, tendrás que generarla otra vez.
+      </p>
+    {% endif %}
+  </section>
+
+  <h2 class="subheading">Gestionar partidos</h2>
+
+  {% for row in rows %}
+    {% set m=row.match %}
+    <article class="match">
+      <h3>{{m.title}}</h3>
+      <p class="muted">
+        {{row.players|length}} de {{m.capacity}} jugadores inscritos
+      </p>
+
+      <details>
+        <summary>Editar datos del partido</summary>
+        <form class="editor" method="post" action="{{url_for('edit',mid=m.id)}}">
+          <input type="hidden" name="csrf" value="{{csrf_token()}}">
+
+          <label>Nombre
+            <input name="title" value="{{m.title}}" required>
+          </label>
+          <label>Fecha y hora
+            <input type="datetime-local" name="starts_at" value="{{m.starts_at}}" required>
+          </label>
+          <label>Categoría
+            <input name="category" value="{{m.category}}" required>
+          </label>
+          <label>Lugar
+            <input name="venue" value="{{m.venue}}">
+          </label>
+          <label>Precio USD
+            <input type="number" name="price" value="{{m.price}}" min="0" step="0.01" required>
+          </label>
+          <label>🏆 Premio
+            <input name="prize" value="{{m.prize}}" placeholder="Ej. Trofeo y $100" maxlength="250">
+          </label>
+          <label>Máximo de jugadores
+            <input type="number" name="capacity" value="{{m.capacity}}" min="1" required>
+          </label>
+          <button class="btn">Guardar cambios</button>
+        </form>
+      </details>
+
+      <h4>👥 Parejas inscritas ({{row.pairs|length}})</h4>
+
+      {% for pair in row.pairs %}
+        <div class="pair-entry">
+          <strong>Pareja {{loop.index}}</strong>
+
+          {% for p in pair %}
+            <div class="adminplayer">
+              <span>{{p.name}}</span>
+              <form method="post"
+                    action="{{url_for('delete_player',rid=p.id)}}"
+                    onsubmit="return confirm('¿Eliminar a este jugador? Su compañero quedará esperando nueva pareja.')">
+                <input type="hidden" name="csrf" value="{{csrf_token()}}">
+                <button class="danger">Eliminar jugador</button>
+              </form>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="muted">Sin parejas inscritas.</p>
+      {% endfor %}
+
+      <h4>⏳ Esperando compañero ({{row.individuals|length}})</h4>
+
+      {% for p in row.individuals %}
+        <div class="adminplayer">
+          <span>{{p.name}}</span>
+          <form method="post"
+                action="{{url_for('delete_player',rid=p.id)}}"
+                onsubmit="return confirm('¿Eliminar a este jugador?')">
+            <input type="hidden" name="csrf" value="{{csrf_token()}}">
+            <button class="danger">Eliminar jugador</button>
+          </form>
+        </div>
+      {% else %}
+        <p class="muted">Nadie esperando compañero.</p>
+      {% endfor %}
+
+      <form method="post"
+            action="{{url_for('delete_match',mid=m.id)}}"
+            onsubmit="return confirm('¿Eliminar este partido y todas sus inscripciones?')">
+        <input type="hidden" name="csrf" value="{{csrf_token()}}">
+        <button class="danger">Eliminar partido completo</button>
+      </form>
+    </article>
+  {% else %}
+    <div class="empty">Aún no has creado partidos.</div>
+  {% endfor %}
+</section>
+{% endblock %}
